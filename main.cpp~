@@ -1,0 +1,173 @@
+// Name: Aranya Meas
+// Quarter, Year: Spring, 2014
+// Lab:2
+//
+// This file is to be modified by the student.
+// main.cpp
+////////////////////////////////////////////////////////////
+#include "object.h"
+#include "quadtree.h"
+#include <algorithm>
+#include <GL/glut.h>
+#include <iostream>
+
+using namespace std;
+
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 800;
+const double VIEW_LEFT = 0.0;
+const double VIEW_RIGHT = WINDOW_WIDTH;
+const double VIEW_BOTTOM = WINDOW_HEIGHT;
+const double VIEW_TOP = 0.0;
+const int DEPTH_LIMIT = 5;
+const int LIST_LIMIT = 1;
+
+Point2D p = Point2D(400.0, 400.0);
+Circle2D circle = Circle2D(p, 25.0, VIOLET, true);
+Player balls = Player(circle, 5.0, 5.0);
+Color colors(0.5, 0.0, 1.0);
+vector<Line2D> line;
+
+QuadTree quadtree(Rect2D(Point2D(VIEW_LEFT, VIEW_TOP), VIEW_RIGHT - VIEW_LEFT, VIEW_BOTTOM - VIEW_TOP), DEPTH_LIMIT, LIST_LIMIT);
+
+int currentTime = 0;
+int previousTime = 0;
+int diffTime;
+float elapsed = 0.0;
+
+void GLrender();
+void GLupdate();
+
+//Initializes OpenGL attributes
+void GLInit(int* argc, char** argv)
+{
+	glutInit(argc, argv);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+	glutCreateWindow("Lab 2 - Aranya Meas");
+	glutDisplayFunc(GLrender);
+	glutIdleFunc(GLupdate);
+	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+	gluOrtho2D(VIEW_LEFT, VIEW_RIGHT, VIEW_BOTTOM, VIEW_TOP);
+
+	quadtree.insert(Line2D(Point2D(100,100),Point2D(100,150)));
+	quadtree.insert(Line2D(Point2D(300,100),Point2D(300,150)));
+	quadtree.insert(Line2D(Point2D(450,320),Point2D(600,320)));
+	quadtree.insert(Line2D(Point2D(50,360),Point2D(50,385)));
+	quadtree.insert(Line2D(Point2D(150,360),Point2D(150,398)));
+	quadtree.insert(Line2D(Point2D(150,405),Point2D(250,405)));
+}
+
+void bounds()
+{
+	if(balls.c.p.y + balls.c.radius > WINDOW_HEIGHT)
+	{
+		balls.vy *= -1;
+		balls.c.p.y = WINDOW_HEIGHT - balls.c.radius;
+	}
+	else if(balls.c.p.x + balls.c.radius > WINDOW_WIDTH)
+	{
+		balls.vx *= -1;
+		balls.c.p.x = WINDOW_WIDTH - balls.c.radius;
+	}
+	else if(balls.c.p.x - balls.c.radius < 0)
+	{
+		balls.vx *= -1;
+		balls.c.p.x = balls.c.radius;
+	}
+	else if(balls.c.p.y - balls.c.radius < 0)
+	{
+		balls.vy *= -1;
+		balls.c.p.y = balls.c.radius;
+	}
+}
+
+void GLKeyboard(unsigned char key, int x, int y)
+{
+    if(key == 'w')
+    {
+        balls.up = true;
+    }
+    else if(key == 'a')
+    {
+        balls.left = true;
+    }
+    else if(key == 's')
+    {
+        balls.down = true;
+    }
+    else if(key == 'd')
+    {
+        balls.right = true;
+    }
+}
+
+void release(unsigned char key, int x, int y)
+{
+    if(key == 'w')
+    {
+        balls.up = false;
+    }
+    else if(key == 'a')
+    {
+        balls.left = false;
+    }
+    else if(key == 's')
+    {
+        balls.down = false;
+    }
+    else if(key == 'd')
+    {
+        balls.right = false;
+    }
+}
+
+int main(int argc, char** argv)
+{
+	GLInit(&argc, argv);
+	glutKeyboardFunc(GLKeyboard);
+	glutKeyboardUpFunc(release);
+	glutMainLoop();
+	return 0;
+}
+
+void GLupdate()
+{
+	const int FRAME_RATE = 25;
+
+	glutPostRedisplay();
+
+	//sleep is not effective in capturing constant time between frames because sleep
+	//doesn't consider the time it takes for context-switching. However, this reduces
+	//the cpu-usage. If accurate time frames are desire, use a time accumulator
+	currentTime = glutGet(GLUT_ELAPSED_TIME);
+	diffTime = currentTime - previousTime;
+	previousTime = currentTime;
+	usleep(1000 * std::max(FRAME_RATE - diffTime, 0));
+	
+	double x = 0, y = 0;
+	
+	if(balls.up)
+	    y += 0.5;
+	if(balls.down)
+	    y -= 0.5;
+	if(balls.left)
+	    x -= 0.5;
+	if(balls.right)
+	    x += 0.5;	
+	
+    balls.updatePlayer(x, y, line);
+    bounds();
+}
+
+void GLrender()
+{
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	line = quadtree.query(Point2D(balls.c.p.x, balls.c.p.y), balls.c);
+	quadtree.render();
+    balls.c.render(colors);
+
+	glFlush();	
+	glutSwapBuffers();
+}
